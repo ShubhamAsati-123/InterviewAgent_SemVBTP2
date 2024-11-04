@@ -14,8 +14,6 @@ import {
   MicOff,
   Video,
   VideoOff,
-  MessageSquare,
-  Send,
   Clock,
   CheckCircle2,
   Moon,
@@ -24,7 +22,6 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -47,20 +44,23 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useTheme } from "next-themes";
 
-export default function ProfessionalAIInterview() {
+const AIInterview = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [isStreamActive, setIsStreamActive] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isCameraOn, setIsCameraOn] = useState(true);
-  const [messages, setMessages] = useState<
-    { sender: "ai" | "user"; content: string }[]
-  >([]);
-  const [inputMessage, setInputMessage] = useState("");
   const [interviewProgress, setInterviewProgress] = useState(0);
   const [interviewDuration, setInterviewDuration] = useState(0);
   const [currentStage, setCurrentStage] = useState(0);
+  const [isListening, setIsListening] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState("");
+  const [candidateResponse, setCandidateResponse] = useState("");
   const { setTheme, theme } = useTheme();
+
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(
+    null
+  );
 
   const interviewStages = [
     { name: "Introduction", completed: false },
@@ -68,6 +68,14 @@ export default function ProfessionalAIInterview() {
     { name: "Work Experience", completed: false },
     { name: "Behavioral Questions", completed: false },
     { name: "Q&A", completed: false },
+  ];
+
+  const questions = [
+    "Tell me about yourself and your background in software development.",
+    "What programming languages are you most proficient in?",
+    "Can you describe a challenging project you've worked on recently?",
+    "How do you handle disagreements with team members?",
+    "Do you have any questions for us about the position or company?",
   ];
 
   const enableVideoStream = async () => {
@@ -109,45 +117,100 @@ export default function ProfessionalAIInterview() {
     }
   };
 
-  const sendMessage = () => {
-    if (inputMessage.trim()) {
-      setMessages([...messages, { sender: "user", content: inputMessage }]);
-      setInputMessage("");
-      // Simulate AI response and progress
+  const textToSpeech = (text: string) => {
+    const utterance = new window.SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const initializeSpeechRecognition = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognitionInstance = new SpeechRecognition();
+      recognitionInstance.continuous = true;
+      recognitionInstance.interimResults = true;
+      recognitionInstance.lang = "en-US";
+
+      recognitionInstance.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognitionInstance.onresult = (event) => {
+        let interimTranscript = "";
+        let finalTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        setCandidateResponse(finalTranscript || interimTranscript);
+      };
+
+      recognitionInstance.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+        setIsListening(false);
+      };
+
+      recognitionInstance.onend = () => {
+        setIsListening(false);
+      };
+
+      setRecognition(recognitionInstance);
+    } else {
+      console.error("Speech recognition not supported in this browser.");
+    }
+  };
+
+  const startListening = () => {
+    if (recognition) {
+      recognition.start();
+    }
+  };
+
+  const stopListening = () => {
+    if (recognition) {
+      recognition.stop();
+    }
+  };
+
+  const askNextQuestion = () => {
+    stopListening();
+    if (currentStage < questions.length) {
+      const nextQuestion = questions[currentStage];
+      setCurrentQuestion(nextQuestion);
+      textToSpeech(nextQuestion);
+      setCurrentStage((prev) => {
+        const newStage = prev + 1;
+        const updatedStages = [...interviewStages];
+        updatedStages[prev].completed = true;
+        return newStage;
+      });
+      setInterviewProgress((prev) => Math.min(prev + 20, 100));
+      setCandidateResponse("");
       setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            sender: "ai",
-            content:
-              "Thank you for your response. Let's move on to the next question.",
-          },
-        ]);
-        setInterviewProgress((prev) => Math.min(prev + 20, 100));
-        setCurrentStage((prev) => {
-          const newStage = Math.min(prev + 1, interviewStages.length - 1);
-          const updatedStages = [...interviewStages];
-          updatedStages[prev].completed = true;
-          return newStage;
-        });
-      }, 1000);
+        startListening();
+      }, 1000); // Start listening after the question is asked
+    } else {
+      setCurrentQuestion(
+        "Thank you for your time. The interview is now complete."
+      );
+      textToSpeech("Thank you for your time. The interview is now complete.");
     }
   };
 
   useEffect(() => {
     enableVideoStream();
-    setMessages([
-      {
-        sender: "ai",
-        content:
-          "Welcome to your AI interview. Let's begin with your introduction. Please tell me about yourself.",
-      },
-    ]);
+    initializeSpeechRecognition();
     const timer = setInterval(() => {
       setInterviewDuration((prev) => prev + 1);
     }, 1000);
     return () => {
       stopVideoStream();
+      stopListening();
       clearInterval(timer);
     };
   }, []);
@@ -157,6 +220,12 @@ export default function ProfessionalAIInterview() {
       videoRef.current.srcObject = mediaStream;
     }
   }, [videoRef, mediaStream]);
+
+  useEffect(() => {
+    if (isStreamActive && currentStage === 0) {
+      askNextQuestion();
+    }
+  }, [isStreamActive, currentStage]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -284,10 +353,6 @@ export default function ProfessionalAIInterview() {
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    <span>View Transcript</span>
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>
                     <Sun className="mr-2 h-4 w-4" />
@@ -301,51 +366,23 @@ export default function ProfessionalAIInterview() {
               </DropdownMenu>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
-              <ScrollArea className="flex-1 pr-4 overflow-y-auto">
-                <div className="flex flex-col space-y-4">
-                  {messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`flex ${
-                        message.sender === "ai"
-                          ? "justify-start"
-                          : "justify-end"
-                      }`}
-                    >
-                      <div
-                        className={`rounded-lg p-3 max-w-[80%] ${
-                          message.sender === "ai"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {message.content}
-                      </div>
-                    </div>
-                  ))}
+              <ScrollArea className="flex-1 pr-4">
+                <div className="space-y-4">
+                  <div className="bg-primary text-primary-foreground p-4 rounded-lg">
+                    <h3 className="font-semibold mb-2">Current Question:</h3>
+                    <p>{currentQuestion}</p>
+                  </div>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <h3 className="font-semibold mb-2">Your Response:</h3>
+                    <p>{candidateResponse}</p>
+                  </div>
                 </div>
               </ScrollArea>
             </CardContent>
             <CardFooter>
-              <div className="flex w-full items-center space-x-2">
-                <Input
-                  type="text"
-                  placeholder="Type your response..."
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button type="submit" size="icon" onClick={sendMessage}>
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Send message</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+              <Button onClick={askNextQuestion} className="w-full">
+                Next Question
+              </Button>
             </CardFooter>
           </Card>
         </div>
@@ -383,4 +420,6 @@ export default function ProfessionalAIInterview() {
       </div>
     </TooltipProvider>
   );
-}
+};
+
+export default AIInterview;

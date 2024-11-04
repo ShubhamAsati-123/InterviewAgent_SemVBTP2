@@ -105,8 +105,8 @@ const questionCategories = [
   },
 ];
 
-const CategoryCard = ({ item, type }) => (
-  <Link href={`/questions/${type}/${item.name.toLowerCase()}`}>
+const CategoryCard = ({ item, type }: any) => (
+  <Link href={`/questionbank/${type}/${item.name.toLowerCase()}`}>
     <Card className="hover:shadow-lg transition-all cursor-pointer h-full group">
       <CardHeader>
         <div className="flex justify-between items-center">
@@ -211,7 +211,7 @@ export default function QuestionBank() {
           transition={{ duration: 0.5, delay: 0.6 }}
         >
           <h2 className="text-2xl font-semibold mb-4">
-            Can't find what you're looking for?
+            Can&apos;t find what you&apos;re looking for?
           </h2>
           <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
             <BookOpen className="mr-2 h-5 w-5" />
