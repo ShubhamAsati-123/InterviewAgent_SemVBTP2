@@ -30,7 +30,7 @@ export default function About() {
               About InterView.io
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              We're revolutionizing the hiring process with cutting-edge
+              We&apos;re revolutionizing the hiring process with cutting-edge
               technology and human-centric design.
             </p>
           </motion.div>

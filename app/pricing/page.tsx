@@ -57,7 +57,7 @@ function PricingPage() {
           Simple, transparent pricing
         </h1>
         <p className="text-xl text-center text-muted-foreground mb-8">
-          Choose the plan that's right for you
+          Choose the plan that&apos;s right for you
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {plans.map((plan, index) => (
