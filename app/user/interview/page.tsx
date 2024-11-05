@@ -58,6 +58,8 @@ const AIInterview = () => {
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [candidateResponse, setCandidateResponse] = useState("");
   const { setTheme, theme } = useTheme();
+  const candidateResponseRef = useRef<string>(""); // Changed from useState to useRef
+
 
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(
     null
@@ -142,19 +144,21 @@ const AIInterview = () => {
       };
 
       recognitionInstance.onresult = (event) => {
-        let interimTranscript = "";
-        let finalTranscript = "";
-
+        var finalTranscript = "";
+      
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
           }
         }
-
-        setCandidateResponse((prev) => prev + (interimTranscript || finalTranscript ));
+      
+        // Update only when final transcript is available
+        if (finalTranscript) {
+          setCandidateResponse((prev) => prev + finalTranscript);
+          candidateResponseRef.current += finalTranscript; // Use final transcript for useRef
+        }
       };
+      
 
       recognitionInstance.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
@@ -183,21 +187,27 @@ const AIInterview = () => {
     }
   };
 
-  const sendResponseToBackend = async () => {
 
-    try {
-      const response = await axios.post("/api/interview/transcript", {
-        response: candidateResponse,
-        question: currentQuestion,
+    const sendResponseToBackend = async () => {
+
+      axios.post('http://127.0.0.1:5000/api/generate-questions', {
+        intro: candidateResponseRef.current
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => {
+        console.log(response.data);
+      })
+      .catch(error => {
+        console.error('Error:', error);
       });
-      if (response.status !== 200) {
-        throw new Error("Failed to send response");
-      }
-    } catch (error) {
-      console.error("Error sending response to backend:", error);
-    }
+      
+    };
+    
 
-  };
+  
 
   const askNextQuestion = () => {
     stopListening();
@@ -214,6 +224,8 @@ const AIInterview = () => {
       });
       setInterviewProgress((prev) => Math.min(prev + 20, 100));
       setCandidateResponse("");
+      candidateResponseRef.current = ""; // Reset useRef instead of useState
+
       setTimeout(() => {
         startListening();
       }, 1000); 
@@ -397,7 +409,7 @@ const AIInterview = () => {
                   </div>
                   <div className="bg-muted p-4 rounded-lg">
                     <h3 className="font-semibold mb-2">Your Response:</h3>
-                    <p>{candidateResponse}</p>
+                    <p>{candidateResponseRef.current}</p>
                   </div>
                 </div>
               </ScrollArea>
