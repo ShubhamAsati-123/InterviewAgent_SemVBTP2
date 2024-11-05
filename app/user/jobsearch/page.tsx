@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -28,7 +29,9 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Search, MapPin, Briefcase, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock data for job listings
 const jobListings = [
@@ -134,17 +137,65 @@ const jobListings = [
   },
 ];
 
+const ITEMS_PER_PAGE = 5;
+
 export default function JobSearchPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [location, setLocation] = useState("all");
   const [jobType, setJobType] = useState("all");
   const [experienceLevel, setExperienceLevel] = useState("all");
   const [resumeUploaded, setResumeUploaded] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [applicationForm, setApplicationForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    experience: "",
+    coverLetter: "",
+  });
+  const { toast } = useToast();
 
   const handleResumeUpload = (event) => {
     if (event.target.files && event.target.files[0]) {
       setResumeUploaded(true);
+      toast({
+        title: "Resume Uploaded",
+        description: "Your resume has been successfully uploaded.",
+      });
     }
+  };
+
+  const handleApply = (job) => {
+    setSelectedJob(job);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setApplicationForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleExperienceChange = (value) => {
+    setApplicationForm((prev) => ({ ...prev, experience: value }));
+  };
+
+  const handleSubmitApplication = (e) => {
+    e.preventDefault();
+    console.log("Submitting application for job:", selectedJob);
+    console.log("Application data:", applicationForm);
+    // Here you would typically send the application data to your backend
+    toast({
+      title: "Application Submitted",
+      description: "Your application has been successfully submitted.",
+    });
+    setSelectedJob(null);
+    setApplicationForm({
+      fullName: "",
+      email: "",
+      phone: "",
+      experience: "",
+      coverLetter: "",
+    });
   };
 
   const filteredJobs = jobListings.filter(
@@ -154,6 +205,16 @@ export default function JobSearchPage() {
       (jobType === "all" || job.type === jobType) &&
       (experienceLevel === "all" || job.experience === experienceLevel)
   );
+
+  const totalPages = Math.ceil(filteredJobs.length / ITEMS_PER_PAGE);
+  const paginatedJobs = filteredJobs.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -171,12 +232,12 @@ export default function JobSearchPage() {
             id="resume-upload"
             accept=".pdf, .doc, .docx"
             onChange={handleResumeUpload}
-            style={{ display: "none" }}
+            className="hidden"
           />
         </div>
       )}
 
-      {resumeUploaded && (
+      {resumeUploaded && !selectedJob && (
         <>
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-grow">
@@ -229,7 +290,7 @@ export default function JobSearchPage() {
           </div>
 
           <div className="space-y-4">
-            {filteredJobs.map((job) => (
+            {paginatedJobs.map((job) => (
               <Card key={job.id}>
                 <CardHeader>
                   <CardTitle>{job.title}</CardTitle>
@@ -255,7 +316,7 @@ export default function JobSearchPage() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button>Apply Now</Button>
+                  <Button onClick={() => handleApply(job)}>Apply Now</Button>
                 </CardFooter>
               </Card>
             ))}
@@ -264,28 +325,129 @@ export default function JobSearchPage() {
           <Pagination>
             <PaginationContent>
               <PaginationItem>
-                <PaginationPrevious href="#" />
+                <PaginationPrevious
+                  href="#"
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                />
               </PaginationItem>
+              {[...Array(totalPages)].map((_, index) => (
+                <PaginationItem key={index}>
+                  <PaginationLink
+                    href="#"
+                    onClick={() => handlePageChange(index + 1)}
+                    isActive={currentPage === index + 1}
+                  >
+                    {index + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
               <PaginationItem>
-                <PaginationLink href="#" isActive>
-                  1
-                </PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink href="#">2</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink href="#">3</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationEllipsis />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext href="#" />
+                <PaginationNext
+                  href="#"
+                  onClick={() =>
+                    handlePageChange(Math.min(totalPages, currentPage + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                />
               </PaginationItem>
             </PaginationContent>
           </Pagination>
         </>
+      )}
+
+      {selectedJob && (
+        <Card className="w-full max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle>Apply for {selectedJob.title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmitApplication} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  name="fullName"
+                  value={applicationForm.fullName}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={applicationForm.email}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={applicationForm.phone}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="experience">Years of Experience</Label>
+                <Select
+                  name="experience"
+                  value={applicationForm.experience}
+                  onValueChange={handleExperienceChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select years of experience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0-1">0-1 years</SelectItem>
+                    <SelectItem value="1-3">1-3 years</SelectItem>
+                    <SelectItem value="3-5">3-5 years</SelectItem>
+                    <SelectItem value="5+">5+ years</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="coverLetter">Cover Letter</Label>
+                <Textarea
+                  id="coverLetter"
+                  name="coverLetter"
+                  value={applicationForm.coverLetter}
+                  onChange={handleInputChange}
+                  rows={5}
+                  required
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSelectedJob(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  onClick={() => {
+                    toast({
+                      title: "Application Submitted",
+                      description:
+                        "Your application has been successfully submitted.",
+                    });
+                  }}
+                >
+                  Submit Application
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

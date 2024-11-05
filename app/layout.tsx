@@ -3,6 +3,7 @@ import "react-toastify/dist/ReactToastify.css";
 import "./globals.css";
 import AuthProvider from "./Provider/AuthProvider";
 import { ThemeProvider } from "next-themes";
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,14 +21,13 @@ export default function RootLayout({
     <html lang="en">
       <body className="">
         <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Toaster />
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -44,9 +44,9 @@ export default function Dashboard() {
   ]);
 
   const [jobPosts] = useState([
-    { title: "Software Engineer", applications: 45, views: 120 },
-    { title: "Data Analyst", applications: 30, views: 100 },
-    { title: "HR Intern", applications: 20, views: 80 },
+    { title: "Senior React Developer", applications: 45, views: 120 },
+    { title: "UX Designer", applications: 30, views: 100 },
+    { title: "Marketing Intern", applications: 20, views: 80 },
   ]);
 
   const applicationTrends = [
