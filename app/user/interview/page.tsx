@@ -58,8 +58,11 @@ const AIInterview = () => {
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [candidateResponse, setCandidateResponse] = useState("");
   const { setTheme, theme } = useTheme();
-  const candidateResponseRef = useRef<string>(""); // Changed from useState to useRef
-
+  const candidateResponseRef = useRef<string>("");
+  const [questions, setQuestions] = useState<string[]>([
+    "Tell me about yourself and your background in software development.",
+  ]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(
     null
@@ -71,14 +74,6 @@ const AIInterview = () => {
     { name: "Work Experience", completed: false },
     { name: "Behavioral Questions", completed: false },
     { name: "Q&A", completed: false },
-  ];
-
-  const questions = [
-    "Tell me about yourself and your background in software development.",
-    "What programming languages are you most proficient in?",
-    "Can you describe a challenging project you've worked on recently?",
-    "How do you handle disagreements with team members?",
-    "Do you have any questions for us about the position or company?",
   ];
 
   const enableVideoStream = async () => {
@@ -122,11 +117,9 @@ const AIInterview = () => {
 
   const textToSpeech = (text: string) => {
     const utterance = new window.SpeechSynthesisUtterance(text);
-
-    try{
-    window.speechSynthesis.speak(utterance);
-    }
-    catch(error){
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
       console.log(error);
     }
   };
@@ -145,29 +138,22 @@ const AIInterview = () => {
 
       recognitionInstance.onresult = (event) => {
         var finalTranscript = "";
-      
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
           }
         }
-      
-        // Update only when final transcript is available
+
         if (finalTranscript) {
           setCandidateResponse((prev) => prev + finalTranscript);
-          candidateResponseRef.current += finalTranscript; // Use final transcript for useRef
+          candidateResponseRef.current += finalTranscript;
         }
       };
-      
 
       recognitionInstance.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
-        // setIsListening(false);
       };
-
-      // recognitionInstance.onend = () => {
-      //   setIsListening(false);
-      // };
 
       setRecognition(recognitionInstance);
     } else {
@@ -187,48 +173,79 @@ const AIInterview = () => {
     }
   };
 
+  const sendResponseToBackend = async () => {
+    if (questions.length >= 5) {
+      return;
+    }
 
-    const sendResponseToBackend = async () => {
-
-      axios.post('http://127.0.0.1:5000/api/generate-questions', {
-        intro: candidateResponseRef.current
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
+    try {
+      const response = await axios.post(
+        "http://127.0.0.1:5000/api/generate-questions",
+        {
+          intro: candidateResponseRef.current,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
-      })
-      .then(response => {
-        console.log(response.data);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
-      
-    };
-    
+      );
 
-  
+      if (response.data && response.data.question) {
+        setQuestions((prevQuestions) => [
+          ...prevQuestions,
+          response.data.question,
+        ]);
+      }
+    } catch (error) {
+      console.error("Error generating question:", error);
+    }
+  };
 
   const askNextQuestion = () => {
     stopListening();
     sendResponseToBackend();
-    if (currentStage < questions.length) {
-      const nextQuestion = questions[currentStage];
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex((prevIndex) => prevIndex + 1);
+      const nextQuestion = questions[currentQuestionIndex + 1];
       setCurrentQuestion(nextQuestion);
       textToSpeech(nextQuestion);
-      setCurrentStage((prev) => {
-        const newStage = prev + 1;
+      setCurrentStage((prevStage) => {
+        const newStage = prevStage + 1;
         const updatedStages = [...interviewStages];
-        updatedStages[prev].completed = true;
+        updatedStages[prevStage].completed = true;
         return newStage;
       });
       setInterviewProgress((prev) => Math.min(prev + 20, 100));
       setCandidateResponse("");
-      candidateResponseRef.current = ""; // Reset useRef instead of useState
+      candidateResponseRef.current = "";
 
       setTimeout(() => {
         startListening();
-      }, 1000); 
+      }, 1000);
+    } else if (questions.length < 5) {
+      const checkNewQuestion = setInterval(() => {
+        if (questions.length > currentQuestionIndex + 1) {
+          clearInterval(checkNewQuestion);
+          setCurrentQuestionIndex((prevIndex) => prevIndex + 1);
+          const nextQuestion = questions[currentQuestionIndex + 1];
+          setCurrentQuestion(nextQuestion);
+          textToSpeech(nextQuestion);
+          setCurrentStage((prevStage) => {
+            const newStage = prevStage + 1;
+            const updatedStages = [...interviewStages];
+            updatedStages[prevStage].completed = true;
+            return newStage;
+          });
+          setInterviewProgress((prev) => Math.min(prev + 20, 100));
+          setCandidateResponse("");
+          candidateResponseRef.current = "";
+
+          setTimeout(() => {
+            startListening();
+          }, 1000);
+        }
+      }, 500);
     } else {
       setCurrentQuestion(
         "Thank you for your time. The interview is now complete."
@@ -245,7 +262,6 @@ const AIInterview = () => {
     }, 1000);
     return () => {
       stopVideoStream();
-      // stopListening();
       clearInterval(timer);
     };
   }, []);
@@ -257,10 +273,12 @@ const AIInterview = () => {
   }, [videoRef, mediaStream]);
 
   useEffect(() => {
-    if (isStreamActive && currentStage === 0) {
-      askNextQuestion();
+    if (isStreamActive && currentQuestionIndex === 0) {
+      setCurrentQuestion(questions[0]);
+      textToSpeech(questions[0]);
+      startListening();
     }
-  }, [isStreamActive, currentStage]);
+  }, [isStreamActive, questions]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

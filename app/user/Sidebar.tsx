@@ -121,7 +121,7 @@ export function AppSidebar() {
                   <Link href={item.url} className="flex items-center gap-3">
                     <item.icon size={18} />
                     <span>{item.title}</span>
-                    {["InterView", "Resume Maker"].includes(item.title) && (
+                    {["InterView"].includes(item.title) && (
                       <Badge variant="secondary" className="ml-auto">
                         New
                       </Badge>
