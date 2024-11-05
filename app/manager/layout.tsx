@@ -1,7 +1,7 @@
 import { Inter } from "next/font/google";
 import "react-toastify/dist/ReactToastify.css";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "./Sidebar";
+import AppSidebar from "./Sidebar";
 
 const inter = Inter({ subsets: ["latin"] });
 

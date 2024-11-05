@@ -65,7 +65,7 @@ const mainItems = [
   },
   {
     title: "Resume Maker",
-    url: "/user/interview",
+    url: "/user/airesumemaker",
     icon: FileUser,
   },
 ];
@@ -73,7 +73,7 @@ const mainItems = [
 const secondaryItems = [
   {
     title: "Practice Questions",
-    url: "/practice",
+    url: "/user/practice",
     icon: FolderArchive,
   },
   {
@@ -88,7 +88,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <Sidebar className="border-r" collapsible="icon">
+    <Sidebar className="border-r">
       <SidebarHeader className="border-b p-4">
         <SidebarMenu>
           <SidebarMenuItem>
