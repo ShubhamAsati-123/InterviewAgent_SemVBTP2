@@ -5,7 +5,7 @@ import Features from "./features";
 import Pricing from "./pricing";
 import QuestionBank from "./questionbank";
 import Testimonials from "./testiminials";
-import Footer from "./Footer";
+import Footer from "./footer";
 
 export default function HeroSection() {
 

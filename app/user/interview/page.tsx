@@ -43,6 +43,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useTheme } from "next-themes";
+import axios from "axios";
 
 const AIInterview = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -119,12 +120,17 @@ const AIInterview = () => {
 
   const textToSpeech = (text: string) => {
     const utterance = new window.SpeechSynthesisUtterance(text);
+
+    try{
     window.speechSynthesis.speak(utterance);
+    }
+    catch(error){
+      console.log(error);
+    }
   };
 
   const initializeSpeechRecognition = () => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognitionInstance = new SpeechRecognition();
       recognitionInstance.continuous = true;
@@ -147,17 +153,17 @@ const AIInterview = () => {
           }
         }
 
-        setCandidateResponse(finalTranscript || interimTranscript);
+        setCandidateResponse((prev) => prev + (interimTranscript || finalTranscript ));
       };
 
       recognitionInstance.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
-        setIsListening(false);
+        // setIsListening(false);
       };
 
-      recognitionInstance.onend = () => {
-        setIsListening(false);
-      };
+      // recognitionInstance.onend = () => {
+      //   setIsListening(false);
+      // };
 
       setRecognition(recognitionInstance);
     } else {
@@ -177,8 +183,25 @@ const AIInterview = () => {
     }
   };
 
+  const sendResponseToBackend = async () => {
+
+    try {
+      const response = await axios.post("/api/interview/transcript", {
+        response: candidateResponse,
+        question: currentQuestion,
+      });
+      if (response.status !== 200) {
+        throw new Error("Failed to send response");
+      }
+    } catch (error) {
+      console.error("Error sending response to backend:", error);
+    }
+
+  };
+
   const askNextQuestion = () => {
     stopListening();
+    sendResponseToBackend();
     if (currentStage < questions.length) {
       const nextQuestion = questions[currentStage];
       setCurrentQuestion(nextQuestion);
@@ -193,7 +216,7 @@ const AIInterview = () => {
       setCandidateResponse("");
       setTimeout(() => {
         startListening();
-      }, 1000); // Start listening after the question is asked
+      }, 1000); 
     } else {
       setCurrentQuestion(
         "Thank you for your time. The interview is now complete."
@@ -210,7 +233,7 @@ const AIInterview = () => {
     }, 1000);
     return () => {
       stopVideoStream();
-      stopListening();
+      // stopListening();
       clearInterval(timer);
     };
   }, []);
